@@ -3,11 +3,10 @@
 ;;
 
 (add-load-path "." :relative)
-(display #\cr)(flush) ; allocate console for windows
 (use gauche.test)
-(use math.const)
-(use srfi-13)   ; for string-tabulate
-(use file.util) ; for null-device
+(use math.const) ; for pi
+(use srfi-13)    ; for string-tabulate
+(use file.util)  ; for null-device
 
 (test-start "eenum")
 (use eenum)
@@ -120,8 +119,4 @@
 (expr-test "" "1 2 3"    (eenum "  1 2 3  "))
 
 (test-end)
-
-(print "HIT ENTER KEY!")
-(flush)
-(read-line)
 
