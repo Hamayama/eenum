@@ -54,11 +54,14 @@
 (expr-test "" " 0.0123"  (eenum "12.3e-3" 7))
 
 (test-section "digits")
-(expr-test "" "123.0"    (eenum "123"     #f 1))
-(expr-test "" "123.00"   (eenum "123"     #f 2))
-(expr-test "" "0.012"    (eenum "12.3e-3" #f 3))
-(expr-test "" "0.0123"   (eenum "12.3e-3" #f 4))
-(expr-test "" "0.01230"  (eenum "12.3e-3" #f 5))
+(expr-test "" "123.0"    (eenum "123"     #f  1))
+(expr-test "" "123.00"   (eenum "123"     #f  2))
+(expr-test "" "0.012"    (eenum "12.3e-3" #f  3))
+(expr-test "" "0.0123"   (eenum "12.3e-3" #f  4))
+(expr-test "" "0.01230"  (eenum "12.3e-3" #f  5))
+(expr-test "" "123"      (eenum "123.45"  #f  0))
+(expr-test "" "120"      (eenum "123.45"  #f -1))
+(expr-test "" "12300"    (eenum "12345"   #f -2))
 
 (test-section "plus-sign")
 (expr-test "" "123"      (eenum "123"     #f #f #f))
@@ -94,6 +97,8 @@
 (expr-test "" "e"        (eenum "e"))
 (expr-test "" "0e"       (eenum "0e"))
 (expr-test "" "e0"       (eenum "e0"))
+(expr-test "" "e+"       (eenum "e+"))
+(expr-test "" "0e-"      (eenum "0e-"))
 
 (test-section "calculation")
 (expr-test "" "+inf.0"   (eenum (/.  1 0)))

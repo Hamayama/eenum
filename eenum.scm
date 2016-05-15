@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2016-5-15 v1.02
+;; 2016-5-16 v1.03
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -15,7 +15,6 @@
     eenum
     ))
 (select-module eenum)
-
 
 ;; 数値文字列を、符号部、整数部、小数部、指数部の文字列に分解する(内部処理用)
 (define (%split-num-str num-st)
@@ -95,9 +94,11 @@
                       ""))
       ;; エラーチェック
       ;;   ・整数部と小数部が両方とも空のときはエラー
-      ;;   ・指数マーカーがあって指数部が空のときはエラー
+      ;;   ・指数マーカーがあって指数部が未完成のときはエラー
       (if (or (and (equal? int-st "") (equal? frac-st ""))
-              (and exp-index (equal? exp-st "")))
+              (and exp-index (or (equal? exp-st "")
+                                 (equal? exp-st "+")
+                                 (equal? exp-st "-"))))
         (set! err-flag #t))
       )
     ;; 戻り値を多値で返す
@@ -106,6 +107,34 @@
       (values sign-st int-st frac-st exp-st))
     ))
 
+;; 数値文字列の丸め処理(内部処理用)
+(define (%round-num-str sign-st int-st frac-st digits round-mode)
+  ;; 丸め方式で場合分け
+  (case round-mode
+    ((truncate)
+     (cond
+      ((> digits 0)
+       (let1 frac-len (string-length frac-st)
+         (cond
+          ((> frac-len digits)
+           (set! frac-st (substring frac-st 0 digits)))
+          ((< frac-len digits)
+           (set! frac-st (string-append frac-st (make-string (- digits frac-len) #\0))))
+          )))
+      ((< digits 0)
+       (let1 int-len  (string-length int-st)
+         (if (< (- digits) int-len)
+           (set! int-st (string-append (substring int-st 0 (- int-len (- digits)))
+                                       (make-string (- digits) #\0)))
+           (set! int-st "0")))
+       (set! frac-st ""))
+      (else
+       (set! frac-st ""))))
+    ((floor))   ; 未実装
+    ((ceiling)) ; 未実装
+    ((round))   ; 未実装
+    )
+  (values int-st frac-st))
 
 ;; 数値の指数表記を展開した文字列を取得する
 ;;   num        数値または数値文字列
@@ -174,17 +203,9 @@
         ;; 小数点以下の桁数指定ありのとき
         (when digits
           (set! digits (x->integer digits))
-          (cond
-           ((> digits 0)
-            (let1 frac-len (string-length frac-st)
-              (cond
-               ((> frac-len digits)
-                (set! frac-st (substring frac-st 0 digits)))
-               ((< frac-len digits)
-                (set! frac-st (string-append frac-st (make-string (- digits frac-len) #\0))))
-               )))
-           (else
-            (set! frac-st ""))))
+          ;; 数値文字列の丸め処理
+          (set!-values (int-st frac-st)
+                       (%round-num-str sign-st int-st frac-st digits 'truncate)))
         ;; 符号部、整数部、小数部の文字列を結合
         (if (equal? frac-st "")
           (set! num-st (string-append sign-st int-st))
@@ -198,5 +219,4 @@
         (if (< num-len width)
           (set! num-st (string-append (make-string (- width num-len) pad-char) num-st)))))
     ))
-
 
