@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2016-5-15 v1.00
+;; 2016-5-15 v1.01
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -20,6 +20,8 @@
 ;; 数値文字列を、符号部、整数部、小数部、指数部の文字列に分解する(内部処理用)
 (define (%split-num-str num-st)
   (let ((num-len    (string-length num-st)) ; 数値文字列の長さ
+        (sign-flag  #f) ; 符号の有無
+        (zero-flag  #f) ; 先頭のゼロの有無
         (int-index  #f) ; 整数部の開始位置
         (frac-index #f) ; 小数部の開始位置
         (exp-index  #f) ; 指数部の開始位置
@@ -41,13 +43,13 @@
              ;; 符号のチェック
              ((0)
               (case c
-                ((#\+ #\-) (set! int-index 1) (inc! mode))
+                ((#\+ #\-) (set! sign-flag #t) (inc! mode))
                 (else  (inc! mode) (loop))))
              ;; 先頭のゼロのスキップ
              ((1)
               (case c
-                ((#\0))
-                (else  (inc! mode) (loop))))
+                ((#\0) (set! zero-flag #t))
+                (else  (set! int-index i) (inc! mode) (loop))))
              ;; 整数部のチェック
              ((2)
               (case c
@@ -78,10 +80,13 @@
      num-st)
     ;; 符号部、整数部、小数部、指数部の文字列を取得
     (unless err-flag
-      (set! sign-st (if int-index
-                      (substring num-st 0 int-index)
+      (set! sign-st (if sign-flag
+                      (substring num-st 0 1)
                       ""))
-      (set! int-st  (substring num-st (or int-index 0) (or frac-index exp-index num-len)))
+      (set! int-st  (if int-index
+                      (substring num-st int-index (or frac-index exp-index num-len))
+                      ""))
+      (if (and zero-flag (equal? int-st "")) (set! int-st "0"))
       (set! frac-st (if frac-index
                       (substring num-st (+ frac-index 1) (or exp-index num-len))
                       ""))
@@ -97,13 +102,14 @@
 ;;   num        数値または数値文字列
 ;;              (複素数には未対応)
 ;;   width      全体の文字数 (省略可)
-;;              (結果がこの文字数未満であれば、半角スペースを挿入して右寄せにして出力する。
+;;              (結果がこの文字数未満であれば、pad-char を挿入して右寄せにして出力する。
 ;;               結果がこの文字数より多い場合には、そのまま出力する)
 ;;   digits     小数点以下の桁数 (省略可)
 ;;              (結果の小数部がこの桁数より多い場合には、切り捨てる。
 ;;               結果の小数部がこの桁数より少ない場合には、0を追加する)
 ;;   plus-sign  正符号(+)を出力するかどうか (省略可)
-(define (eenum num :optional (width #f) (digits #f) (plus-sign #f))
+;;   pad-char   右寄せ時に挿入する文字 (省略可)
+(define (eenum num :optional (width #f) (digits #f) (plus-sign #f) (pad-char #\space))
   (rlet1 num-st (if (string? num)
                   (string-trim-both num)
                   (x->string num))
@@ -171,7 +177,7 @@
       (set! width (x->integer width))
       (let1 num-len (string-length num-st)
         (if (< num-len width)
-          (set! num-st (string-append (make-string (- width num-len) #\space) num-st)))))
+          (set! num-st (string-append (make-string (- width num-len) pad-char) num-st)))))
     ))
 
 
