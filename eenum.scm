@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2016-5-15 v1.01
+;; 2016-5-15 v1.02
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -10,7 +10,7 @@
 ;;   https://github.com/Hamayama/eenum
 ;;
 (define-module eenum
-  (use srfi-13) ; string-for-each,string-trim-both用
+  (use srfi-13) ; string-for-each,string-trim-both,string-skip用
   (export
     eenum
     ))
@@ -93,9 +93,18 @@
       (set! exp-st  (if exp-index
                       (substring num-st (+ exp-index 1) num-len)
                       ""))
+      ;; エラーチェック
+      ;;   ・整数部と小数部が両方とも空のときはエラー
+      ;;   ・指数マーカーがあって指数部が空のときはエラー
+      (if (or (and (equal? int-st "") (equal? frac-st ""))
+              (and exp-index (equal? exp-st "")))
+        (set! err-flag #t))
       )
     ;; 戻り値を多値で返す
-    (values sign-st int-st frac-st exp-st)))
+    (if err-flag
+      (values #f #f #f #f)
+      (values sign-st int-st frac-st exp-st))
+    ))
 
 
 ;; 数値の指数表記を展開した文字列を取得する
@@ -122,10 +131,11 @@
         (if plus-sign
           (if (equal? sign-st "")  (set! sign-st "+"))
           (if (equal? sign-st "+") (set! sign-st "")))
-        ;; 指数の分だけ整数部と小数部をずらす
+        ;; 指数の分だけ整数部と小数部をシフトする
         (let1 exp-num (x->integer exp-st)
           (cond
            ((> exp-num 0)
+            ;; 左にシフト
             (let1 frac-len (string-length frac-st)
               (cond
                ((< exp-num frac-len)
@@ -137,8 +147,16 @@
                (else
                 (set! int-st  (string-append int-st frac-st))
                 (set! frac-st ""))
-               )))
+               ))
+            ;; 整数部の先頭のゼロを削除
+            (let1 int-len  (string-length int-st)
+              (if (> int-len 0)
+                (if-let1 non-zero-index (string-skip int-st #\0)
+                  (set! int-st  (substring int-st non-zero-index int-len))
+                  (set! int-st  "0"))))
+            )
            ((< exp-num 0)
+            ;; 右にシフト
             (let1 int-len  (string-length int-st)
               (cond
                ((< (- exp-num) int-len)
@@ -150,7 +168,8 @@
                (else
                 (set! frac-st (string-append int-st frac-st))
                 (set! int-st  "0"))
-               )))
+               ))
+            )
            ))
         ;; 小数点以下の桁数指定ありのとき
         (when digits
