@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2016-5-16 v1.05
+;; 2016-5-28 v1.06
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -27,12 +27,15 @@
 ;;               (結果の小数部がこの桁数より多い場合には、丸め処理を行う。
 ;;                結果の小数部がこの桁数より少ない場合には、0を追加する。
 ;;                もし、負の数を指定した場合には、整数部の丸め処理を行う)
-;;   plus-sign   正符号(+)を出力するかどうか (省略可)
-;;   pad-char    右寄せ時に挿入する文字 (省略可)
 ;;   round-mode  丸めモード (省略可)
 ;;               'truncate 'floor 'ceiling 'round 'round2 のいずれかを指定する
 ;;               ('round は最近接偶数への丸め。'round2 は四捨五入)
-(define (eenum num :optional (width #f) (digits #f) (plus-sign #f) (pad-char #f) (round-mode #f))
+;;   pad-char    右寄せ時に挿入する文字 (省略可)
+;;   plus-sign   正符号(+)を出力するかどうか (省略可)
+;;   sign-align-left  符号を左寄せで出力するかどうか (省略可)
+(define (eenum num
+               :optional (width #f) (digits #f) (round-mode #f)
+               (pad-char #f) (plus-sign #f) (sign-align-left #f))
   (rlet1 num-st (if (string? num)
                   (string-trim-both num)
                   (x->string num))
@@ -83,8 +86,8 @@
         (let1 int-len  (string-length int-st)
           (if (> int-len 0)
             (if-let1 non-zero-index (string-skip int-st #\0)
-              (set! int-st  (substring int-st non-zero-index int-len))
-              (set! int-st  "0"))))
+              (set! int-st (substring int-st non-zero-index int-len))
+              (set! int-st "0"))))
         ;; 正符号の処理
         (if plus-sign
           (if (equal? sign-st "")  (set! sign-st "+"))
@@ -94,14 +97,20 @@
           (set! num-st (string-append sign-st int-st))
           (set! num-st (string-append sign-st int-st "." frac-st)))
         )
-      )
-    ;; 全体の文字数指定ありのとき
-    (when width
-      (set! width (x->integer width))
-      (let1 num-len (string-length num-st)
-        (if (< num-len width)
-          (set! num-st (string-append (make-string (- width num-len) (or pad-char #\space)) num-st)))))
-    ))
+      ;; 全体の文字数指定ありのとき
+      (when width
+        (set! width (x->integer width))
+        (let1 num-len (string-length num-st)
+          (if (< num-len width)
+            (cond
+             ((and sign-align-left sign-st)
+              (set! num-st (string-append sign-st
+                                          (make-string (- width num-len) (or pad-char #\space))
+                                          (substring num-st (string-length sign-st) num-len))))
+             (else
+              (set! num-st (string-append (make-string (- width num-len) (or pad-char #\space)) num-st)))
+             ))))
+      )))
 
 
 ;; 数値文字列を、符号部、整数部、小数部、指数部の文字列に分解する(内部処理用)
