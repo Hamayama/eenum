@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2016-5-28 v1.06
+;; 2016-6-6 v1.07
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -36,46 +36,18 @@
 (define (eenum num
                :optional (width #f) (digits #f) (round-mode #f)
                (pad-char #f) (plus-sign #f) (sign-align-left #f))
-  (rlet1 num-st (if (string? num)
-                  (string-trim-both num)
-                  (x->string num))
+  (rlet1 num-st (string-trim-both (x->string num))
     ;; 数値文字列の分解
-    (receive (sign-st int-st frac-st exp-st)
+    (receive (split-ok sign-st int-st frac-st exp-st)
         (%split-num-str num-st)
       ;; 分解できたとき
-      (when sign-st
-        ;; 指数の分だけ整数部と小数部をシフトする
-        (let1 exp-num (x->integer exp-st)
-          (cond
-           ((> exp-num 0)
-            ;; 左にシフト
-            (let1 frac-len (string-length frac-st)
-              (cond
-               ((< exp-num frac-len)
-                (set! int-st  (string-append int-st (substring frac-st 0 exp-num)))
-                (set! frac-st (substring frac-st exp-num frac-len)))
-               ((> exp-num frac-len)
-                (set! int-st  (string-append int-st frac-st (make-string (- exp-num frac-len) #\0)))
-                (set! frac-st ""))
-               (else
-                (set! int-st  (string-append int-st frac-st))
-                (set! frac-st ""))
-               )))
-           ((< exp-num 0)
-            ;; 右にシフト
-            (let1 int-len  (string-length int-st)
-              (cond
-               ((< (- exp-num) int-len)
-                (set! frac-st (string-append (substring int-st (- int-len (- exp-num)) int-len) frac-st))
-                (set! int-st  (substring int-st 0 (- int-len (- exp-num)))))
-               ((> (- exp-num) int-len)
-                (set! frac-st (string-append (make-string (- (- exp-num) int-len) #\0) int-st frac-st))
-                (set! int-st  "0"))
-               (else
-                (set! frac-st (string-append int-st frac-st))
-                (set! int-st  "0"))
-               )))
-           ))
+      (when split-ok
+        ;; 数値文字列のシフト処理
+        (receive (changed int-st1 frac-st1)
+            (%shift-num-str int-st frac-st (x->integer exp-st))
+          (when changed
+            (set! int-st  int-st1)
+            (set! frac-st frac-st1)))
         ;; 小数点以下の桁数指定ありのとき
         (when digits
           (set! digits (x->integer digits))
@@ -83,7 +55,7 @@
           (set!-values (int-st frac-st)
                        (%round-num-str sign-st int-st frac-st digits (or round-mode 'truncate))))
         ;; 整数部の先頭のゼロを削除
-        (let1 int-len  (string-length int-st)
+        (let1 int-len (string-length int-st)
           (if (> int-len 0)
             (if-let1 non-zero-index (string-skip int-st #\0)
               (set! int-st (substring int-st non-zero-index int-len))
@@ -102,18 +74,17 @@
         (set! width (x->integer width))
         (let1 num-len (string-length num-st)
           (if (< num-len width)
-            (cond
-             ((and sign-align-left sign-st)
+            (if (and sign-align-left split-ok)
               (set! num-st (string-append sign-st
                                           (make-string (- width num-len) (or pad-char #\space))
-                                          (substring num-st (string-length sign-st) num-len))))
-             (else
+                                          (substring num-st (string-length sign-st) num-len)))
               (set! num-st (string-append (make-string (- width num-len) (or pad-char #\space)) num-st)))
-             ))))
+            )))
       )))
 
 
-;; 数値文字列を、符号部、整数部、小数部、指数部の文字列に分解する(内部処理用)
+;; 数値文字列の分解(内部処理用)
+;;   ・符号部、整数部、小数部、指数部の文字列に分解する
 (define (%split-num-str num-st)
   (let ((num-len    (string-length num-st)) ; 数値文字列の長さ
         (sign-flag  #f) ; 符号の有無
@@ -198,11 +169,49 @@
                                  (equal? exp-st "-"))))
         (set! err-flag #t))
       )
-    ;; 戻り値を多値で返す
+    ;; 戻り値を多値で返す(先頭は成功フラグ)
     (if err-flag
-      (values #f #f #f #f)
-      (values sign-st int-st frac-st exp-st))
-    ))
+      (values #f #f #f #f #f)
+      (values #t sign-st int-st frac-st exp-st))))
+
+
+;; 数値文字列のシフト処理(内部処理用)
+(define (%shift-num-str int-st frac-st exp-num)
+  ;; 指数の分だけ整数部と小数部をシフトする
+  (cond
+   ((> exp-num 0)
+    ;; 左にシフト
+    (let1 frac-len (string-length frac-st)
+      (cond
+       ((< exp-num frac-len)
+        (set! int-st  (string-append int-st (substring frac-st 0 exp-num)))
+        (set! frac-st (substring frac-st exp-num frac-len)))
+       ((> exp-num frac-len)
+        (set! int-st  (string-append int-st frac-st (make-string (- exp-num frac-len) #\0)))
+        (set! frac-st ""))
+       (else
+        (set! int-st  (string-append int-st frac-st))
+        (set! frac-st ""))
+       )))
+   ((< exp-num 0)
+    ;; 右にシフト
+    (let1 int-len  (string-length int-st)
+      (cond
+       ((< (- exp-num) int-len)
+        (set! frac-st (string-append (substring int-st (- int-len (- exp-num)) int-len) frac-st))
+        (set! int-st  (substring int-st 0 (- int-len (- exp-num)))))
+       ((> (- exp-num) int-len)
+        (set! frac-st (string-append (make-string (- (- exp-num) int-len) #\0) int-st frac-st))
+        (set! int-st  "0"))
+       (else
+        (set! frac-st (string-append int-st frac-st))
+        (set! int-st  "0"))
+       )))
+   )
+  ;; 戻り値を多値で返す(先頭は変化フラグ)
+  (if (= exp-num 0)
+    (values #f #f #f)
+    (values #t int-st frac-st)))
 
 
 ;; 数値文字列の丸め処理(内部処理用)
@@ -211,87 +220,16 @@
   (case round-mode
     ;; ゼロへの丸め(truncate)のとき(ここでの処理は不要)
     ((truncate))
-    ;; その他の丸めのとき(処理が必要)
+    ;; その他の丸めのとき
     ((floor ceiling round round2)
-     ;; 余分なゼロを追加(処理を簡単にするため)
-     (cond
-      ((> digits 0)
-       (let1 frac-len (string-length frac-st)
-         (if (< frac-len digits)
-           (set! frac-st (string-append frac-st (make-string (- digits frac-len) #\0))))))
-      ((< digits 0)
-       (let1 int-len  (string-length int-st)
-         (if (< int-len (+ (- digits) 1))
-           (set! int-st (string-append (make-string (- (+ (- digits) 1) int-len) #\0) int-st)))))
-      (else
-       (if (equal? int-st "") (set! int-st "0")))
-      )
-     ;; 丸めのための加算値の取得と反映
-     (let ((temp-num-st1 (string-append int-st frac-st))
-           (int-len      (string-length int-st))
-           (frac-len     (string-length frac-st))
-           (add-value    0)) ; 加算値
-       ;; 加算値の取得
-       (case round-mode
-         ;; 負の無限大への丸め(floor)のとき
-         ((floor)
-          (if (and (equal? sign-st "-")
-                   (string-skip temp-num-st1 #\0 (+ int-len digits)))
-            (set! add-value 1)))
-         ;; 正の無限大への丸め(ceiling)のとき
-         ((ceiling)
-          (if (and (not (equal? sign-st "-"))
-                   (string-skip temp-num-st1 #\0 (+ int-len digits)))
-            (set! add-value 1)))
-         ;; 最近接偶数への丸め(round)のとき
-         ((round)
-          (case (string-ref temp-num-st1 (+ int-len digits) #\0)
-            ((#\6 #\7 #\8 #\9)
-             (set! add-value 1))
-            ((#\5)
-             (if (and (< digits frac-len)
-                      (string-skip temp-num-st1 #\0 (+ (+ int-len digits) 1)))
-               (set! add-value 1)
-               (case (string-ref temp-num-st1 (- (+ int-len digits) 1) #\0)
-                 ((#\1 #\3 #\5 #\7 #\9)
-                  (set! add-value 1)))))
-            ))
-         ;; 四捨五入(round2)のとき
-         ((round2)
-          (case (string-ref temp-num-st1 (+ int-len digits) #\0)
-            ((#\5 #\6 #\7 #\8 #\9)
-             (set! add-value 1))
-            ))
-         )
-       ;; 加算値の反映
-       ;;   整数に変換して加算値を加算し、再度文字列に戻す
-       (let* ((temp-num   (+ (x->integer (substring temp-num-st1 0 (+ int-len digits)))
-                             add-value))
-              (temp-num-st2  (x->string temp-num))
-              (temp-num-len2 (string-length temp-num-st2)))
-         ;; 整数部と小数部の文字列を取得
-         (cond
-          ((> digits 0)
-           (cond
-            ((< temp-num-len2 digits)
-             (set! int-st  "0")
-             (set! frac-st (string-append (make-string (- digits temp-num-len2) #\0) temp-num-st2)))
-            ((> temp-num-len2 digits)
-             (set! int-st  (substring temp-num-st2 0 (- temp-num-len2 digits)))
-             (set! frac-st (substring temp-num-st2 (- temp-num-len2 digits) temp-num-len2)))
-            (else
-             (set! int-st  "0")
-             (set! frac-st temp-num-st2))
-            ))
-          ((< digits 0)
-           (set! int-st  (string-append temp-num-st2 (make-string (- digits) #\0)))
-           (set! frac-st ""))
-          (else
-           (set! int-st  temp-num-st2)
-           (set! frac-st ""))
-          ))))
+     ;; 数値文字列の丸め処理サブ
+     (receive (changed int-st1 frac-st1)
+         (%round-num-str-sub sign-st int-st frac-st digits round-mode)
+       (when changed
+         (set! int-st  int-st1)
+         (set! frac-st frac-st1))))
     )
-  ;; 桁の切り捨て処理
+  ;; 桁の切り捨て/追加処理
   (cond
    ((> digits 0)
     (let1 frac-len (string-length frac-st)
@@ -309,8 +247,96 @@
         (set! int-st "0")))
     (set! frac-st ""))
    (else
-    (set! frac-st "")))
+    (set! frac-st ""))
+   )
   ;; 戻り値を多値で返す
   (values int-st frac-st))
+
+
+;; 数値文字列の丸め処理サブ(内部処理用)
+(define (%round-num-str-sub sign-st int-st frac-st digits round-mode)
+  ;; 余分なゼロを追加(後の処理を簡単にするため)
+  (cond
+   ((> digits 0)
+    (let1 frac-len (string-length frac-st)
+      (if (< frac-len digits)
+        (set! frac-st (string-append frac-st (make-string (- digits frac-len) #\0))))))
+   ((< digits 0)
+    (let1 int-len  (string-length int-st)
+      (if (< int-len (+ (- digits) 1))
+        (set! int-st (string-append (make-string (- (+ (- digits) 1) int-len) #\0) int-st)))))
+   (else
+    (if (equal? int-st "") (set! int-st "0")))
+   )
+  ;; 丸めのための加算値の取得と反映
+  (let ((temp-num-st1 (string-append int-st frac-st))
+        (int-len      (string-length int-st))
+        (frac-len     (string-length frac-st))
+        (add-value    0)) ; 加算値
+    ;; 加算値の取得
+    (case round-mode
+      ;; 負の無限大への丸め(floor)のとき
+      ((floor)
+       (if (and (equal? sign-st "-")
+                (string-skip temp-num-st1 #\0 (+ int-len digits)))
+         (set! add-value 1)))
+      ;; 正の無限大への丸め(ceiling)のとき
+      ((ceiling)
+       (if (and (not (equal? sign-st "-"))
+                (string-skip temp-num-st1 #\0 (+ int-len digits)))
+         (set! add-value 1)))
+      ;; 最近接偶数への丸め(round)のとき
+      ((round)
+       (case (string-ref temp-num-st1 (+ int-len digits) #\0)
+         ((#\6 #\7 #\8 #\9)
+          (set! add-value 1))
+         ((#\5)
+          (if (and (< digits frac-len)
+                   (string-skip temp-num-st1 #\0 (+ (+ int-len digits) 1)))
+            (set! add-value 1)
+            (case (string-ref temp-num-st1 (- (+ int-len digits) 1) #\0)
+              ((#\1 #\3 #\5 #\7 #\9)
+               (set! add-value 1)))))
+         ))
+      ;; 四捨五入(round2)のとき
+      ((round2)
+       (case (string-ref temp-num-st1 (+ int-len digits) #\0)
+         ((#\5 #\6 #\7 #\8 #\9)
+          (set! add-value 1))
+         ))
+      )
+    ;; 加算値の反映
+    ;;   整数に変換して加算値を加算し、再度文字列に戻す
+    (if (not (= add-value 0))
+      (let* ((temp-num   (+ (x->integer (substring temp-num-st1 0 (+ int-len digits)))
+                            add-value))
+             (temp-num-st2  (x->string temp-num))
+             (temp-num-len2 (string-length temp-num-st2)))
+        ;; 整数部と小数部の文字列を取得
+        (cond
+         ((> digits 0)
+          (cond
+           ((< temp-num-len2 digits)
+            (set! int-st  "0")
+            (set! frac-st (string-append (make-string (- digits temp-num-len2) #\0) temp-num-st2)))
+           ((> temp-num-len2 digits)
+            (set! int-st  (substring temp-num-st2 0 (- temp-num-len2 digits)))
+            (set! frac-st (substring temp-num-st2 (- temp-num-len2 digits) temp-num-len2)))
+           (else
+            (set! int-st  "0")
+            (set! frac-st temp-num-st2))
+           ))
+         ((< digits 0)
+          (set! int-st  (string-append temp-num-st2 (make-string (- digits) #\0)))
+          (set! frac-st ""))
+         (else
+          (set! int-st  temp-num-st2)
+          (set! frac-st ""))
+         ))
+      )
+    ;; 戻り値を多値で返す(先頭は変化フラグ)
+    (if (= add-value 0)
+      (values #f #f #f)
+      (values #t int-st frac-st))))
 
 
