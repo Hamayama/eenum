@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2016-6-13 v1.08
+;; 2016-6-13 v1.09
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -33,9 +33,8 @@
 ;;   pad-char    右寄せ時に挿入する文字 (省略可)
 ;;   plus-sign   正符号(+)を出力するかどうか (省略可)
 ;;   sign-align-left  符号を左寄せで出力するかどうか (省略可)
-(define (eenum num
-               :optional (width #f) (digits #f) (round-mode #f)
-               (pad-char #f) (plus-sign #f) (sign-align-left #f))
+(define (eenum num :optional (width #f) (digits #f) (round-mode #f) (pad-char #f)
+               (plus-sign #f) (sign-align-left #f))
   (rlet1 num-st (string-trim-both (x->string num))
     ;; 数値文字列の分解
     (receive (split-ok sign-st int-st frac-st exp-st)
@@ -49,8 +48,7 @@
         (when digits
           ;; 数値文字列の丸め処理
           (set!-values (int-st frac-st)
-                       (%round-num-str sign-st int-st frac-st
-                                       (x->integer digits)
+                       (%round-num-str sign-st int-st frac-st (x->integer digits)
                                        (or round-mode 'truncate))))
         ;; 整数部の先頭のゼロを削除
         (set! int-st (%remove-leading-zero int-st))
@@ -66,8 +64,7 @@
       ;; 全体の文字数指定ありのとき
       (when width
         ;; 数値文字列の文字挿入処理
-        (set! num-st (%pad-num-str num-st (x->integer width)
-                                   (or pad-char #\space)
+        (set! num-st (%pad-num-str num-st (x->integer width) (or pad-char #\space)
                                    sign-align-left split-ok sign-st)))
       )))
 
@@ -229,9 +226,9 @@
    ((< digits 0)
     (let1 int-len  (string-length int-st)
       (if (< (- digits) int-len)
-        (set! int-st (string-append (substring int-st 0 (- int-len (- digits)))
-                                    (make-string (- digits) #\0)))
-        (set! int-st "0")))
+        (set! int-st  (string-append (substring int-st 0 (- int-len (- digits)))
+                                     (make-string (- digits) #\0)))
+        (set! int-st  "0")))
     (set! frac-st ""))
    (else
     (set! frac-st ""))
@@ -250,8 +247,8 @@
         (set! frac-st (string-append frac-st (make-string (- digits frac-len) #\0))))))
    ((< digits 0)
     (let1 int-len  (string-length int-st)
-      (if (< int-len (+ (- digits) 1))
-        (set! int-st (string-append (make-string (- (+ (- digits) 1) int-len) #\0) int-st)))))
+      (if (< int-len  (+ (- digits) 1))
+        (set! int-st  (string-append (make-string (- (+ (- digits) 1) int-len) #\0) int-st)))))
    (else
     (if (equal? int-st "") (set! int-st "0")))
    )
@@ -342,8 +339,7 @@
   (let1 num-len (string-length num-st)
     (if (< num-len width)
       (if (and sign-align-left split-ok)
-        (set! num-st (string-append sign-st
-                                    (make-string (- width num-len) pad-char)
+        (set! num-st (string-append sign-st (make-string (- width num-len) pad-char)
                                     (substring num-st (string-length sign-st) num-len)))
         (set! num-st (string-append (make-string (- width num-len) pad-char) num-st))))
     num-st))
