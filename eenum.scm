@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2016-6-6 v1.07
+;; 2016-6-13 v1.08
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -43,23 +43,17 @@
       ;; 分解できたとき
       (when split-ok
         ;; 数値文字列のシフト処理
-        (receive (changed int-st1 frac-st1)
-            (%shift-num-str int-st frac-st (x->integer exp-st))
-          (when changed
-            (set! int-st  int-st1)
-            (set! frac-st frac-st1)))
+        (set!-values (int-st frac-st)
+                     (%shift-num-str int-st frac-st (x->integer exp-st)))
         ;; 小数点以下の桁数指定ありのとき
         (when digits
-          (set! digits (x->integer digits))
           ;; 数値文字列の丸め処理
           (set!-values (int-st frac-st)
-                       (%round-num-str sign-st int-st frac-st digits (or round-mode 'truncate))))
+                       (%round-num-str sign-st int-st frac-st
+                                       (x->integer digits)
+                                       (or round-mode 'truncate))))
         ;; 整数部の先頭のゼロを削除
-        (let1 int-len (string-length int-st)
-          (if (> int-len 0)
-            (if-let1 non-zero-index (string-skip int-st #\0)
-              (set! int-st (substring int-st non-zero-index int-len))
-              (set! int-st "0"))))
+        (set! int-st (%remove-leading-zero int-st))
         ;; 正符号の処理
         (if plus-sign
           (if (equal? sign-st "")  (set! sign-st "+"))
@@ -71,15 +65,10 @@
         )
       ;; 全体の文字数指定ありのとき
       (when width
-        (set! width (x->integer width))
-        (let1 num-len (string-length num-st)
-          (if (< num-len width)
-            (if (and sign-align-left split-ok)
-              (set! num-st (string-append sign-st
-                                          (make-string (- width num-len) (or pad-char #\space))
-                                          (substring num-st (string-length sign-st) num-len)))
-              (set! num-st (string-append (make-string (- width num-len) (or pad-char #\space)) num-st)))
-            )))
+        ;; 数値文字列の文字挿入処理
+        (set! num-st (%pad-num-str num-st (x->integer width)
+                                   (or pad-char #\space)
+                                   sign-align-left split-ok sign-st)))
       )))
 
 
@@ -208,10 +197,8 @@
         (set! int-st  "0"))
        )))
    )
-  ;; 戻り値を多値で返す(先頭は変化フラグ)
-  (if (= exp-num 0)
-    (values #f #f #f)
-    (values #t int-st frac-st)))
+  ;; 戻り値を多値で返す
+  (values int-st frac-st))
 
 
 ;; 数値文字列の丸め処理(内部処理用)
@@ -338,5 +325,27 @@
     (if (= add-value 0)
       (values #f #f #f)
       (values #t int-st frac-st))))
+
+
+;; 整数部の先頭のゼロを削除(内部処理用)
+(define (%remove-leading-zero int-st)
+  (let1 int-len (string-length int-st)
+    (if (> int-len 0)
+      (if-let1 non-zero-index (string-skip int-st #\0)
+        (set! int-st (substring int-st non-zero-index int-len))
+        (set! int-st "0")))
+    int-st))
+
+
+;; 数値文字列の文字挿入処理(内部処理用)
+(define (%pad-num-str num-st width pad-char sign-align-left split-ok sign-st)
+  (let1 num-len (string-length num-st)
+    (if (< num-len width)
+      (if (and sign-align-left split-ok)
+        (set! num-st (string-append sign-st
+                                    (make-string (- width num-len) pad-char)
+                                    (substring num-st (string-length sign-st) num-len)))
+        (set! num-st (string-append (make-string (- width num-len) pad-char) num-st))))
+    num-st))
 
 
