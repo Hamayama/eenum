@@ -30,6 +30,7 @@
 (expr-test "" "0"        (eenum 0))
 (expr-test "" "123"      (eenum 123))
 (expr-test "" "-123"     (eenum -123))
+(expr-test "" "0.01"     (eenum 1/100))
 (expr-test "" "123"      (eenum "  123  "))
 (expr-test "" "123"      (eenum "0123"))
 (expr-test "" "-123"     (eenum "-0123"))

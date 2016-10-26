@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2016-6-13 v1.09
+;; 2016-10-26 v1.10
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -35,7 +35,12 @@
 ;;   sign-align-left  符号を左寄せで出力するかどうか (省略可)
 (define (eenum num :optional (width #f) (digits #f) (round-mode #f) (pad-char #f)
                (plus-sign #f) (sign-align-left #f))
-  (rlet1 num-st (string-trim-both (x->string num))
+  (rlet1 num-st (string-trim-both
+                 (x->string
+                  ;; 整数でない数値を渡した場合には、不正確数に変換してから処理
+                  (if (and (number? num) (not (integer? num)))
+                    (inexact num)
+                    num)))
     ;; 数値文字列の分解
     (receive (split-ok sign-st int-st frac-st exp-st)
         (%split-num-str num-st)
@@ -290,7 +295,7 @@
          ))
       )
     ;; 加算値の反映
-    ;;   整数に変換して加算値を加算し、再度文字列に戻す
+    ;;   ・整数に変換して加算値を加算し、再度文字列に戻す
     (if (not (= add-value 0))
       (let* ((temp-num   (+ (x->integer (substring temp-num-st1 0 (+ int-len digits)))
                             add-value))
