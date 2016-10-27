@@ -1,10 +1,11 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2016-10-26 v1.10
+;; 2016-10-27 v1.11
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
+;;   また、桁数を指定して丸め処理を行った文字列を取得することもできます。
 ;;
 ;;   詳細については、以下のページを参照ください。
 ;;   https://github.com/Hamayama/eenum
@@ -76,6 +77,30 @@
 
 ;; 数値文字列の分解(内部処理用)
 ;;   ・符号部、整数部、小数部、指数部の文字列に分解する
+;;
+;; ＜正規表現バージョン＞
+;; (長い文字列のときにエラー「stack overrun during matching regexp」が発生するため未使用)
+;;(define (%split-num-str num-st)
+;;  (let* ((m         (#/^([+\-])?(0+)?(\d+)?(?:\.(\d+)?)?(?:[eEsSfFdDlL]([+\-]?\d*))?$/ num-st))
+;;         (sign-st   (or (and m (m 1)) ""))
+;;         (zero-flag (or (and m (m 2)) #f))
+;;         (int-st    (or (and m (m 3)) ""))
+;;         (frac-st   (or (and m (m 4)) ""))
+;;         (exp-st    (or (and m (m 5)) ""))
+;;         (err-flag  (not (boolean m))))
+;;    (unless err-flag
+;;      (if (and zero-flag (equal? int-st ""))
+;;        (set! int-st "0"))
+;;      (if (and (equal? int-st "") (equal? frac-st ""))
+;;        (set! err-flag #t))
+;;      (if (and m (m 5) (or (equal? exp-st "")
+;;                           (equal? exp-st "+")
+;;                           (equal? exp-st "-")))
+;;        (set! err-flag #t)))
+;;    (if err-flag
+;;      (values #f #f #f #f #f)
+;;      (values #t sign-st int-st frac-st exp-st))))
+;;
 (define (%split-num-str num-st)
   (let ((num-len    (string-length num-st)) ; 数値文字列の長さ
         (sign-flag  #f) ; 符号の有無
@@ -144,7 +169,8 @@
       (set! int-st  (if int-index
                       (substring num-st int-index (or frac-index exp-index num-len))
                       ""))
-      (if (and zero-flag (equal? int-st "")) (set! int-st "0"))
+      (if (and zero-flag (equal? int-st ""))
+        (set! int-st "0"))
       (set! frac-st (if frac-index
                       (substring num-st (+ frac-index 1) (or exp-index num-len))
                       ""))
@@ -154,10 +180,11 @@
       ;; エラーチェック
       ;;   ・整数部と小数部が両方とも空のときはエラー
       ;;   ・指数マーカーがあって指数部が未完成のときはエラー
-      (if (or (and (equal? int-st "") (equal? frac-st ""))
-              (and exp-index (or (equal? exp-st "")
-                                 (equal? exp-st "+")
-                                 (equal? exp-st "-"))))
+      (if (and (equal? int-st "") (equal? frac-st ""))
+        (set! err-flag #t))
+      (if (and exp-index (or (equal? exp-st "")
+                             (equal? exp-st "+")
+                             (equal? exp-st "-")))
         (set! err-flag #t))
       )
     ;; 戻り値を多値で返す(先頭は成功フラグ)
