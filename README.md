@@ -19,8 +19,7 @@
   ```
   以後、(eenum 1e10) 等で数値の指数表記を展開できます。
 
-- eenum 手続きの引数  
-  eenum 手続きには以下の引数を指定できます。  
+- eenum 手続きの書式は以下の通りです。  
   `eenum num [width] [digits] [round-mode] [pad-char] [plus-sign] [sign-align-left]`
   - 第1引数の num には、数値または数値の文字列を指定します。
 
