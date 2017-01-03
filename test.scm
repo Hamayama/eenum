@@ -142,6 +142,13 @@
 (expr-test "" "-0123"    (eenum "-123"     5  #f #f #\0 #f #t))
 (expr-test "" "+0123"    (eenum "123"      5  #f #f #\0 #t #t))
 
+(test-section "circular-digits")
+(expr-test "" "0.33333"        (eenum 1/3  #f #f #f #f  #f #f 5))
+(expr-test "" "-0.33333"       (eenum -1/3 #f #f #f #f  #f #f 5))
+(expr-test "" "0.142857142857" (eenum 1/7  #f #f #f #f  #f #f 12))
+(expr-test "" "0.25"           (eenum 1/4  #f #f #f #f  #f #f 10000))
+(expr-test "" "299999999.999999999" (eenum 299999999999999999/1000000000))
+
 (test-section "exponent marker")
 (expr-test "" "1230"     (eenum "123e1"))
 (expr-test "" "1230"     (eenum "123E1"))

@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2016-10-27 v1.11
+;; 2017-1-3 v1.12
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -34,14 +34,11 @@
 ;;   pad-char    右寄せ時に挿入する文字 (省略可)
 ;;   plus-sign   正符号(+)を出力するかどうか (省略可)
 ;;   sign-align-left  符号を左寄せで出力するかどうか (省略可)
+;;   circular-digits  循環小数の最大桁数 (省略可)
 (define (eenum num :optional (width #f) (digits #f) (round-mode #f) (pad-char #f)
-               (plus-sign #f) (sign-align-left #f))
-  (rlet1 num-st (string-trim-both
-                 (x->string
-                  ;; 整数でない数値を渡した場合には、不正確数に変換してから処理
-                  (if (and (number? num) (not (integer? num)))
-                    (inexact num)
-                    num)))
+               (plus-sign #f) (sign-align-left #f) (circular-digits 100))
+  ;; 数値文字列への変換
+  (rlet1 num-st (%convert-num-str num (x->integer circular-digits))
     ;; 数値文字列の分解
     (receive (split-ok sign-st int-st frac-st exp-st)
         (%split-num-str num-st)
@@ -75,6 +72,40 @@
       )))
 
 
+;; 数値文字列への変換(内部処理用)
+(define (%convert-num-str num circular-digits)
+  (cond
+   ;; 正確数でかつ整数以外のとき
+   ((and (exact? num) (not (integer? num)))
+    ;; 有理数を循環小数に展開する(ただし最大桁数までで止める)
+    (let* ((minus  (if (< num 0) #t #f))   ; マイナス符号
+           (num    (if minus (- num) num)) ; マイナス符号反転
+           (n      (numerator   num))      ; 有理数の分子
+           (d      (denominator num))      ; 有理数の分母
+           (q      (quotient  n d))        ; 商
+           (r      (remainder n d))        ; 余り
+           (num-st (string-append          ; 数値文字列
+                    (if minus "-" "")
+                    (x->string q)))
+           (frac-chars '()))               ; 小数の各桁の文字
+      (unless (= r 0)
+        (let loop ((i 1))
+          (set! n (* r 10))
+          (set! q (quotient  n d))
+          (set! r (remainder n d))
+          (push! frac-chars (integer->digit q))
+          (when (and (not (= r 0)) (< i circular-digits))
+            (loop (+ i 1))))
+        (set! num-st (string-append
+                      num-st "."
+                      (list->string (reverse frac-chars)))))
+      num-st))
+   ;; その他のとき
+   (else
+    (string-trim-both (x->string num)))
+   ))
+
+
 ;; 数値文字列の分解(内部処理用)
 ;;   ・符号部、整数部、小数部、指数部の文字列に分解する
 ;;
@@ -101,6 +132,7 @@
 ;;      (values #f #f #f #f #f)
 ;;      (values #t sign-st int-st frac-st exp-st))))
 ;;
+;; ＜1文字ずつ解析していくバージョン＞
 (define (%split-num-str num-st)
   (let ((num-len    (string-length num-st)) ; 数値文字列の長さ
         (sign-flag  #f) ; 符号の有無
