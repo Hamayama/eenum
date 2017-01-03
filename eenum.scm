@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2017-1-3 v1.12
+;; 2017-1-3 v1.13
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -78,10 +78,10 @@
    ;; 正確数でかつ整数以外のとき
    ((and (exact? num) (not (integer? num)))
     ;; 有理数を循環小数に展開する(ただし最大桁数までで止める)
-    (let* ((minus  (if (< num 0) #t #f))   ; マイナス符号
-           (num    (if minus (- num) num)) ; マイナス符号反転
-           (n      (numerator   num))      ; 有理数の分子
-           (d      (denominator num))      ; 有理数の分母
+    (let* ((minus  (if (< num 0) #t #f))   ; マイナス符号フラグ
+           (num1   (if minus (- num) num)) ; 符号をプラスにする
+           (n      (numerator   num1))     ; 有理数の分子
+           (d      (denominator num1))     ; 有理数の分母
            (q      (quotient  n d))        ; 商
            (r      (remainder n d))        ; 余り
            (num-st (string-append          ; 数値文字列
