@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2017-1-3 v1.13
+;; 2017-1-4 v1.14
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -36,9 +36,9 @@
 ;;   sign-align-left  符号を左寄せで出力するかどうか (省略可)
 ;;   circular-digits  循環小数の最大桁数 (省略可)
 (define (eenum num :optional (width #f) (digits #f) (round-mode #f) (pad-char #f)
-               (plus-sign #f) (sign-align-left #f) (circular-digits 100))
+               (plus-sign #f) (sign-align-left #f) (circular-digits #f))
   ;; 数値文字列への変換
-  (rlet1 num-st (%convert-num-str num (x->integer circular-digits))
+  (rlet1 num-st (%convert-num-str num (if circular-digits (x->integer circular-digits) 100))
     ;; 数値文字列の分解
     (receive (split-ok sign-st int-st frac-st exp-st)
         (%split-num-str num-st)
