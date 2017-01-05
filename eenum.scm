@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2017-1-4 v1.14
+;; 2017-1-5 v1.20
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -19,24 +19,26 @@
 
 
 ;; 数値の指数表記を展開した文字列を取得する
-;;   num         数値または数値文字列
-;;               (複素数には未対応)
-;;   width       全体の文字数 (省略可)
-;;               (結果がこの文字数未満であれば、pad-char を挿入して右寄せにして出力する。
-;;                結果がこの文字数以上の場合には、そのまま出力する)
-;;   digits      小数点以下の桁数 (省略可)
-;;               (結果の小数部がこの桁数より多い場合には、丸め処理を行う。
-;;                結果の小数部がこの桁数より少ない場合には、0を追加する。
-;;                もし、負の数を指定した場合には、整数部の丸め処理を行う)
-;;   round-mode  丸めモード (省略可)
-;;               'truncate 'floor 'ceiling 'round 'round2 のいずれかを指定する
-;;               ('round は最近接偶数への丸め。'round2 は四捨五入)
-;;   pad-char    右寄せ時に挿入する文字 (省略可)
-;;   plus-sign   正符号(+)を出力するかどうか (省略可)
-;;   sign-align-left  符号を左寄せで出力するかどうか (省略可)
-;;   circular-digits  循環小数の最大桁数 (省略可)
-(define (eenum num :optional (width #f) (digits #f) (round-mode #f) (pad-char #f)
-               (plus-sign #f) (sign-align-left #f) (circular-digits #f))
+;;   num          数値または数値文字列
+;;                (複素数には未対応)
+;;   :w   width   全体の文字数 (キーワード引数)
+;;                (結果がこの文字数未満であれば、pad-char を挿入して右寄せにして出力する。
+;;                 結果がこの文字数以上の場合には、そのまま出力する)
+;;   :d   digits  小数点以下の桁数 (キーワード引数))
+;;                (結果の小数部がこの桁数より多い場合には、丸め処理を行う。
+;;                 結果の小数部がこの桁数より少ない場合には、0 を追加する。
+;;                 もし、負の数を指定した場合には、整数部の丸め処理を行う)
+;;   :rm  round-mode  丸めモード (キーワード引数)
+;;                    'truncate 'floor 'ceiling 'round 'round2 のいずれかを指定する
+;;                    ('round は最近接偶数への丸め。'round2 は四捨五入)
+;;   :pd  pad-char    右寄せ時に挿入する文字 (キーワード引数)
+;;   :ps  plus-sign   正符号(+)を出力するかどうか (キーワード引数)
+;;   :sal sign-align-left  符号を左寄せで出力するかどうか (キーワード引数)
+;;   :cd  circular-digits  循環小数の最大桁数 (キーワード引数)
+(define (eenum num
+               :key ((:w width) #f) ((:d digits) #f) ((:rm round-mode) #f)
+               ((:pc pad-char) #f) ((:ps plus-sign) #f) ((:sal sign-align-left) #f)
+               ((:cd circular-digits) #f))
   ;; 数値文字列への変換
   (rlet1 num-st (%convert-num-str num (if circular-digits (x->integer circular-digits) 100))
     ;; 数値文字列の分解
