@@ -146,6 +146,7 @@
 (expr-test "" "0.142857142857" (eenum 1/7  :cd 12))
 (expr-test "" "0.25"           (eenum 1/4  :cd 10000))
 (expr-test "" "299999999.999999999" (eenum 299999999999999999/1000000000))
+(expr-test "" (test-error <error>)  (eenum 1/3 :cd 1000001))
 
 (test-section "exponent marker")
 (expr-test "" "1230"     (eenum "123e1"))
