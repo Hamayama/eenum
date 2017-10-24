@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2017-10-24 v1.23
+;; 2017-10-25 v1.24
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -404,9 +404,9 @@
   (let1 int-len (string-length int-st)
     (if (> int-len 0)
       (if-let1 non-zero-index (string-skip int-st #\0)
-        (set! int-st (substring int-st non-zero-index int-len))
-        (set! int-st "0")))
-    int-st))
+        (substring int-st non-zero-index int-len)
+        "0")
+      int-st)))
 
 
 ;; 数値文字列の文字挿入処理(内部処理用)
@@ -414,9 +414,9 @@
   (let1 num-len (string-length num-st)
     (if (< num-len width)
       (if (and sign-align-left split-ok)
-        (set! num-st (string-append sign-st (make-string (- width num-len) pad-char)
-                                    (substring num-st (string-length sign-st) num-len)))
-        (set! num-st (string-append (make-string (- width num-len) pad-char) num-st))))
-    num-st))
+        (string-append sign-st (make-string (- width num-len) pad-char)
+                       (substring num-st (string-length sign-st) num-len))
+        (string-append (make-string (- width num-len) pad-char) num-st))
+      num-st)))
 
 
