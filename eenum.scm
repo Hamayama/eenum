@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2017-1-10 v1.22
+;; 2017-10-24 v1.23
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -90,28 +90,27 @@
    ;; 正確数でかつ整数以外のとき
    ((and (exact? num) (not (integer? num)))
     ;; 有理数を循環小数に展開する(ただし最大桁数までで止める)
-    (let* ((minus  (if (< num 0) #t #f))   ; マイナス符号フラグ
-           (num1   (if minus (- num) num)) ; 符号をプラスにする
-           (n      (numerator   num1))     ; 有理数の分子
-           (d      (denominator num1))     ; 有理数の分母
-           (q      (quotient  n d))        ; 商
-           (r      (remainder n d))        ; 余り
-           (num-st (string-append          ; 数値文字列
-                    (if minus "-" "")
-                    (x->string q)))
-           (frac-chars '()))               ; 小数の各桁の文字(逆順)
-      (unless (= r 0)
+    (let* ((minus      (if (< num 0) #t #f))   ; マイナス符号フラグ
+           (num1       (if minus (- num) num)) ; 符号をプラスにする
+           (n          (numerator   num1))     ; 有理数の分子
+           (d          (denominator num1))     ; 有理数の分母
+           (q          (quotient  n d))        ; 商
+           (r          (remainder n d))        ; 余り
+           (num-st     (string-append          ; 数値文字列
+                        (if minus "-" "")
+                        (x->string q)))
+           (frac-chars '()))                   ; 小数の各桁の文字(逆順)
+      (if (= r 0)
+        num-st
         (let loop ((i 1))
           (set! n (* r 10))
           (set! q (quotient  n d))
           (set! r (remainder n d))
           (push! frac-chars (integer->digit q))
-          (when (and (not (= r 0)) (< i circular-digits))
-            (loop (+ i 1))))
-        (set! num-st (string-append
-                      num-st "."
-                      (list->string (reverse frac-chars)))))
-      num-st))
+          (if (and (not (= r 0)) (< i circular-digits))
+            (loop (+ i 1))
+            (string-append num-st "." (list->string (reverse frac-chars))))
+          ))))
    ;; その他のとき
    (else
     (string-trim-both (x->string num)))
@@ -368,8 +367,8 @@
     ;; 加算値の反映
     ;;   ・整数に変換して加算値を加算し、再度文字列に戻す
     (if (not (= add-value 0))
-      (let* ((temp-num   (+ (x->integer (substring temp-num-st1 0 (+ int-len digits)))
-                            add-value))
+      (let* ((temp-num      (+ (x->integer (substring temp-num-st1 0 (+ int-len digits)))
+                               add-value))
              (temp-num-st2  (x->string temp-num))
              (temp-num-len2 (string-length temp-num-st2)))
         ;; 整数部と小数部の文字列を取得
