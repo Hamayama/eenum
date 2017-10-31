@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2017-10-25 v1.24
+;; 2017-10-31 v1.30
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -40,15 +40,25 @@
 ;;   :ps  plus-sign   正符号(+)を出力するかどうか (キーワード引数)
 ;;   :sal sign-align-left  符号を左寄せで出力するかどうか (キーワード引数)
 ;;   :cd  circular-digits  循環小数の最大桁数 (キーワード引数)
+;;   :en  exponential-notation  指数表記の指定かつ整数部の桁数指定(キーワード引数)
 (define (eenum num
                :key ((:w width) #f) ((:d digits) #f) ((:rm round-mode) #f)
                ((:pc pad-char) #f) ((:ps plus-sign) #f) ((:sal sign-align-left) #f)
-               ((:cd circular-digits) #f))
+               ((:cd circular-digits) #f) ((:en exponential-notation) #f))
   ;; 引数のチェック
-  (set! circular-digits
-        (if circular-digits (x->integer circular-digits) *default-circular-digits*))
+  (if width  (set! width  (x->integer width)))
+  (if digits (set! digits (x->integer digits)))
+  (unless round-mode (set! round-mode 'truncate))
+  (unless pad-char   (set! pad-char #\space))
+  (set! circular-digits (if circular-digits
+                          (x->integer circular-digits)
+                          *default-circular-digits*))
   (if (> circular-digits *max-circular-digits*)
     (error "circular-digits too large:" circular-digits))
+  (if exponential-notation
+    (set! exponential-notation (if (eq? exponential-notation #t)
+                                 1
+                                 (x->integer exponential-notation))))
   ;; 数値文字列への変換
   (rlet1 num-st (%convert-num-str num circular-digits)
     ;; 数値文字列の分解
@@ -56,31 +66,53 @@
         (%split-num-str num-st)
       ;; 分解できたとき
       (when split-ok
-        ;; 数値文字列のシフト処理
-        (set!-values (int-st frac-st)
-                     (%shift-num-str int-st frac-st (x->integer exp-st)))
-        ;; 小数点以下の桁数指定ありのとき
-        (when digits
-          ;; 数値文字列の丸め処理
-          (set!-values (int-st frac-st)
-                       (%round-num-str sign-st int-st frac-st (x->integer digits)
-                                       (or round-mode 'truncate))))
-        ;; 整数部の先頭のゼロを削除
-        (set! int-st (%remove-leading-zero int-st))
-        ;; 正符号の処理
-        (if plus-sign
-          (if (equal? sign-st "")  (set! sign-st "+"))
-          (if (equal? sign-st "+") (set! sign-st "")))
-        ;; 符号部、整数部、小数部の文字列を結合
-        (if (equal? frac-st "")
-          (set! num-st (string-append sign-st int-st))
-          (set! num-st (string-append sign-st int-st "." frac-st)))
-        )
+        (let1 exp-num (x->integer exp-st)
+          ;; 指数表記指定のとき
+          (if exponential-notation
+            ;; 数値文字列の正規化処理
+            (set!-values (int-st frac-st exp-num)
+                         (%normalize-num-str int-st frac-st exp-num exponential-notation))
+            ;; 数値文字列のシフト処理
+            (set!-values (int-st frac-st exp-num)
+                         (%shift-num-str int-st frac-st exp-num)))
+          ;; 小数点以下の桁数指定ありのとき
+          (when digits
+            ;; 数値文字列の丸め処理
+            (set!-values (int-st frac-st)
+                         (%round-num-str sign-st int-st frac-st digits round-mode)))
+          ;; 整数部の先頭のゼロを削除
+          (set! int-st (%remove-leading-zero int-st))
+
+          ;; 指数表記指定で小数点以下の桁数指定ありのとき
+          ;; (丸めによる最上位桁の繰り上がり対策でもう1回処理する)
+          (when (and exponential-notation digits)
+            ;; 数値文字列の正規化処理(2回目)
+            (set!-values (int-st frac-st exp-num)
+                         (%normalize-num-str int-st frac-st exp-num exponential-notation))
+            ;; 数値文字列の丸め処理(2回目)(ここはゼロへの丸めとする)
+            (set!-values (int-st frac-st)
+                         (%round-num-str sign-st int-st frac-st digits 'truncate))
+            ;; 整数部の先頭のゼロを削除(2回目)
+            (set! int-st (%remove-leading-zero int-st)))
+
+          ;; 正符号の処理
+          (if plus-sign
+            (if (equal? sign-st "")  (set! sign-st "+"))
+            (if (equal? sign-st "+") (set! sign-st "")))
+          ;; 符号部、整数部、小数部の文字列を結合
+          (if (equal? frac-st "")
+            (set! num-st (string-append sign-st int-st))
+            (set! num-st (string-append sign-st int-st "." frac-st)))
+          ;; 指数部の文字列を結合
+          (set! exp-st (x->string exp-num))
+          (if (and (not (= exp-num 0))
+                   (string-skip (string-append int-st frac-st) #\0))
+            (set! num-st (string-append num-st "e" exp-st)))
+          ))
       ;; 全体の文字数指定ありのとき
       (when width
         ;; 数値文字列の文字挿入処理
-        (set! num-st (%pad-num-str num-st (x->integer width) (or pad-char #\space)
-                                   sign-align-left split-ok sign-st)))
+        (set! num-st (%pad-num-str num-st width pad-char sign-align-left split-ok sign-st)))
       )))
 
 
@@ -236,6 +268,21 @@
       (values #t sign-st int-st frac-st exp-st))))
 
 
+;; 数値文字列の正規化処理(内部処理用)
+(define (%normalize-num-str int-st frac-st exp-num exp-int-cols)
+  ;; 整数部の桁数が exp-int-cols になるように指数部を調整する
+  (if-let1 non-zero-index (string-skip (string-append int-st frac-st) #\0)
+    (let ((exp-num1  (- (+ non-zero-index exp-int-cols) (string-length int-st)))
+          (exp-dummy 0))
+      ;; 数値文字列のシフト処理
+      (set!-values (int-st frac-st exp-dummy)
+                   (%shift-num-str int-st frac-st exp-num1))
+      ;; 指数部の調整
+      (set! exp-num (+ exp-num (- exp-num1)))))
+  ;; 戻り値を多値で返す
+  (values int-st frac-st exp-num))
+
+
 ;; 数値文字列のシフト処理(内部処理用)
 (define (%shift-num-str int-st frac-st exp-num)
   ;; 指数の分だけ整数部と小数部をシフトする
@@ -269,8 +316,8 @@
         (set! int-st  "0"))
        )))
    )
-  ;; 戻り値を多値で返す
-  (values int-st frac-st))
+  ;; 戻り値を多値で返す(指数部は0とする)
+  (values int-st frac-st 0))
 
 
 ;; 数値文字列の丸め処理(内部処理用)
