@@ -240,5 +240,8 @@
 (expr-test "" "+123a"    (eenum "+123a"))
 (expr-test "" "1 2 3"    (eenum "  1 2 3  "))
 
+;; summary
+(format (current-error-port) "~%~a" ((with-module gauche.test format-summary)))
+
 (test-end)
 

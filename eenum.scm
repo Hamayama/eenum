@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2017-10-31 v1.30
+;; 2019-10-23 v1.31
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -36,7 +36,7 @@
 ;;   :rm  round-mode  丸めモード (キーワード引数)
 ;;                    'truncate 'floor 'ceiling 'round 'round2 のいずれかを指定する
 ;;                    ('round は最近接偶数への丸め。'round2 は四捨五入)
-;;   :pd  pad-char    右寄せ時に挿入する文字 (キーワード引数)
+;;   :pd  pad-char    右寄せ時に挿入するパッド文字 (キーワード引数)
 ;;   :ps  plus-sign   正符号(+)を出力するかどうか (キーワード引数)
 ;;   :sal sign-align-left  符号を左寄せで出力するかどうか (キーワード引数)
 ;;   :cd  circular-digits  循環小数の最大桁数 (キーワード引数)
@@ -67,7 +67,7 @@
       ;; 分解できたとき
       (when split-ok
         (let1 exp-num (x->integer exp-st)
-          ;; 指数表記指定のとき
+          ;; 指数表記指定のチェック
           (if exponential-notation
             ;; 数値文字列の正規化処理
             (set!-values (int-st frac-st exp-num)
@@ -111,7 +111,7 @@
           ))
       ;; 全体の文字数指定ありのとき
       (when width
-        ;; 数値文字列の文字挿入処理
+        ;; 数値文字列のパッド文字挿入処理
         (set! num-st (%pad-num-str num-st width pad-char sign-align-left split-ok sign-st)))
       )))
 
@@ -456,7 +456,7 @@
       int-st)))
 
 
-;; 数値文字列の文字挿入処理(内部処理用)
+;; 数値文字列のパッド文字挿入処理(内部処理用)
 (define (%pad-num-str num-st width pad-char sign-align-left split-ok sign-st)
   (let1 num-len (string-length num-st)
     (if (< num-len width)
