@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2019-10-23 v1.31
+;; 2019-10-25 v1.32
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -40,25 +40,28 @@
 ;;   :ps  plus-sign   正符号(+)を出力するかどうか (キーワード引数)
 ;;   :sal sign-align-left  符号を左寄せで出力するかどうか (キーワード引数)
 ;;   :cd  circular-digits  循環小数の最大桁数 (キーワード引数)
-;;   :en  exponential-notation  指数表記の指定かつ整数部の桁数指定(キーワード引数)
+;;   :en  exponential-notation  指数表記で出力を行うかどうか (キーワード引数)
+;;   :ed  exponential-digits    指数表記の整数部の桁数 (キーワード引数)
 (define (eenum num
-               :key ((:w width) #f) ((:d digits) #f) ((:rm round-mode) #f)
-               ((:pc pad-char) #f) ((:ps plus-sign) #f) ((:sal sign-align-left) #f)
-               ((:cd circular-digits) #f) ((:en exponential-notation) #f))
+               :key ((:w width) #f) ((:d digits) #f)
+               ((:rm round-mode) 'truncate)
+               ((:pc pad-char)   #\space)
+               ((:ps plus-sign) #f) ((:sal sign-align-left) #f)
+               ((:cd circular-digits)      *default-circular-digits*)
+               ((:en exponential-notation) #f)
+               ((:ed exponential-digits)   1))
   ;; 引数のチェック
   (if width  (set! width  (x->integer width)))
   (if digits (set! digits (x->integer digits)))
-  (unless round-mode (set! round-mode 'truncate))
-  (unless pad-char   (set! pad-char #\space))
-  (set! circular-digits (if circular-digits
-                          (x->integer circular-digits)
-                          *default-circular-digits*))
+  (unless (memq round-mode '(truncate floor ceiling round round2))
+    (error "invalid round-mode:" round-mode))
+  (unless (char? pad-char)
+    (error "pad-char must be a character, but got" pad-char))
+  (set! circular-digits (x->integer circular-digits))
   (if (> circular-digits *max-circular-digits*)
     (error "circular-digits too large:" circular-digits))
-  (if exponential-notation
-    (set! exponential-notation (if (eq? exponential-notation #t)
-                                 1
-                                 (x->integer exponential-notation))))
+  (set! exponential-digits (x->integer exponential-digits))
+
   ;; 数値文字列への変換
   (rlet1 num-st (%convert-num-str num circular-digits)
     ;; 数値文字列の分解
@@ -71,7 +74,7 @@
           (if exponential-notation
             ;; 数値文字列の正規化処理
             (set!-values (int-st frac-st exp-num)
-                         (%normalize-num-str int-st frac-st exp-num exponential-notation))
+                         (%normalize-num-str int-st frac-st exp-num exponential-digits))
             ;; 数値文字列のシフト処理
             (set!-values (int-st frac-st exp-num)
                          (%shift-num-str int-st frac-st exp-num)))
@@ -88,7 +91,7 @@
           (when (and exponential-notation digits)
             ;; 数値文字列の正規化処理(2回目)
             (set!-values (int-st frac-st exp-num)
-                         (%normalize-num-str int-st frac-st exp-num exponential-notation))
+                         (%normalize-num-str int-st frac-st exp-num exponential-digits))
             ;; 数値文字列の丸め処理(2回目)(ここはゼロへの丸めとする)
             (set!-values (int-st frac-st)
                          (%round-num-str sign-st int-st frac-st digits 'truncate))
@@ -105,8 +108,9 @@
             (set! num-st (string-append sign-st int-st "." frac-st)))
           ;; 指数部の文字列を結合
           (set! exp-st (x->string exp-num))
-          (if (and (not (= exp-num 0))
-                   (string-skip (string-append int-st frac-st) #\0))
+          (if (or (eq? exponential-notation 'always)
+                  (and (not (= exp-num 0))
+                       (string-skip (string-append int-st frac-st) #\0)))
             (set! num-st (string-append num-st "e" exp-st)))
           ))
       ;; 全体の文字数指定ありのとき
@@ -269,10 +273,10 @@
 
 
 ;; 数値文字列の正規化処理(内部処理用)
-(define (%normalize-num-str int-st frac-st exp-num exp-int-cols)
-  ;; 整数部の桁数が exp-int-cols になるように指数部を調整する
+(define (%normalize-num-str int-st frac-st exp-num exponential-digits)
+  ;; 整数部の桁数が exponential-digits になるように指数部を調整する
   (if-let1 non-zero-index (string-skip (string-append int-st frac-st) #\0)
-    (let ((exp-num1  (- (+ non-zero-index exp-int-cols) (string-length int-st)))
+    (let ((exp-num1  (- (+ non-zero-index exponential-digits) (string-length int-st)))
           (exp-dummy 0))
       ;; 数値文字列のシフト処理
       (set!-values (int-st frac-st exp-dummy)
