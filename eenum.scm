@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2019-10-25 v1.32
+;; 2019-10-28 v1.33
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -13,8 +13,7 @@
 (define-module eenum
   (use srfi-13) ; string-for-each,string-trim-both,string-skip用
   (export
-    eenum
-    ))
+    eenum))
 (select-module eenum)
 
 ;; 循環小数の最大桁数の最大値
@@ -126,27 +125,32 @@
    ;; 正確数でかつ整数以外のとき
    ((and (exact? num) (not (integer? num)))
     ;; 有理数を循環小数に展開する(ただし最大桁数までで止める)
-    (let* ((minus      (if (< num 0) #t #f))   ; マイナス符号フラグ
-           (num1       (if minus (- num) num)) ; 符号をプラスにする
-           (n          (numerator   num1))     ; 有理数の分子
-           (d          (denominator num1))     ; 有理数の分母
-           (q          (quotient  n d))        ; 商
-           (r          (remainder n d))        ; 余り
-           (num-st     (string-append          ; 数値文字列
-                        (if minus "-" "")
-                        (x->string q)))
-           (frac-chars '()))                   ; 小数の各桁の文字(逆順)
-      (if (= r 0)
-        num-st
-        (let loop ((i 1))
-          (set! n (* r 10))
-          (set! q (quotient  n d))
-          (set! r (remainder n d))
-          (push! frac-chars (integer->digit q))
-          (if (and (not (= r 0)) (< i circular-digits))
-            (loop (+ i 1))
-            (string-append num-st "." (list->string (reverse frac-chars))))
-          ))))
+    (let* ((minus (< num 0))              ; マイナス符号フラグ
+           (num1  (if minus (- num) num)) ; 符号をプラスにする
+           (n     (numerator   num1))     ; 有理数の分子
+           (d     (denominator num1))     ; 有理数の分母
+           (q     (quotient  n d))        ; 商
+           (r     (remainder n d))        ; 余り
+           (i     0))                     ; 小数部の位置
+      ;; 文字列の出力
+      (with-output-to-string
+        (lambda ()
+          ;; 整数部の出力
+          (if minus (display #\-))
+          (display q)
+          ;; 小数のとき
+          (unless (= r 0)
+            ;; 小数点の出力
+            (display #\.)
+            ;; 小数部の各桁を求めて出力
+            (let loop ()
+              (set! n (* r 10))
+              (set! q (quotient  n d))
+              (set! r (remainder n d))
+              (display (integer->digit q))
+              (inc! i)
+              (when (and (not (= r 0)) (< i circular-digits))
+                (loop))))))))
    ;; その他のとき
    (else
     (string-trim-both (x->string num)))

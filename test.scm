@@ -1,5 +1,5 @@
 ;;
-;; testing eenum
+;; Test eenum
 ;;
 
 (add-load-path "." :relative)
