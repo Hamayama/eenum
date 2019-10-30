@@ -21,11 +21,13 @@
 
 - eenum 手続きの書式は以下の通りです。  
   ```
-  eenum num [:w width] [:d digits] [:rm round-mode] [:pc pad-char]
-            [:ps plus-sign] [:sal sign-align-left] [:cd circular-digits]
-            [:en exponential-notation] [:ed exponential-digits]
+  (eenum num [:w width] [:d digits] [:rm round-mode] [:pc pad-char]
+             [:ps plus-sign] [:sal sign-align-left] [:cd circular-digits]
+             [:en exponential-notation] [:ed exponential-digits])
   ```
-  - 第1引数の num には、数値または数値の文字列を指定します。
+  - 第1引数の num には、数値または数値の文字列を指定します。  
+    この値を入力として、指数表記を展開した文字列を生成して出力します。  
+    (ただし、キーワード引数 :en を指定した場合には、指数表記の文字列を出力します)
 
   - キーワード引数 :w の width には、全体の文字数を指定します。  
     結果がこの文字数未満であれば、後述の pad-char を挿入して右寄せにして出力します。  
@@ -181,4 +183,4 @@
 - 2019-10-28 v1.33 有理数の展開処理見直し
 
 
-(2019-10-28)
+(2019-10-30)
