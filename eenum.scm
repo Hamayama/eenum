@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2019-10-28 v1.33
+;; 2019-11-17 v1.34
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -62,7 +62,7 @@
   (set! exponential-digits (x->integer exponential-digits))
 
   ;; 数値文字列への変換
-  (rlet1 num-st (%convert-num-str num circular-digits)
+  (rlet1 num-st (%convert-to-num-str num circular-digits)
     ;; 数値文字列の分解
     (receive (split-ok sign-st int-st frac-st exp-st)
         (%split-num-str num-st)
@@ -115,12 +115,12 @@
       ;; 全体の文字数指定ありのとき
       (when width
         ;; 数値文字列のパッド文字挿入処理
-        (set! num-st (%pad-num-str num-st width pad-char sign-align-left split-ok sign-st)))
+        (set! num-st (%insert-pad-char num-st width pad-char sign-align-left split-ok sign-st)))
       )))
 
 
 ;; 数値文字列への変換(内部処理用)
-(define (%convert-num-str num circular-digits)
+(define (%convert-to-num-str num circular-digits)
   (cond
    ;; 正確数でかつ整数以外のとき
    ((and (exact? num) (not (integer? num)))
@@ -465,7 +465,7 @@
 
 
 ;; 数値文字列のパッド文字挿入処理(内部処理用)
-(define (%pad-num-str num-st width pad-char sign-align-left split-ok sign-st)
+(define (%insert-pad-char num-st width pad-char sign-align-left split-ok sign-st)
   (let1 num-len (string-length num-st)
     (if (< num-len width)
       (if (and sign-align-left split-ok)
