@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2019-11-17 v1.34
+;; 2019-12-14 v1.35
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -130,8 +130,7 @@
            (n     (numerator   num1))     ; 有理数の分子
            (d     (denominator num1))     ; 有理数の分母
            (q     (quotient  n d))        ; 商
-           (r     (remainder n d))        ; 余り
-           (i     0))                     ; 小数部の位置
+           (r     (remainder n d)))       ; 余り
       ;; 文字列の出力
       (with-output-to-string
         (lambda ()
@@ -143,14 +142,13 @@
             ;; 小数点の出力
             (display #\.)
             ;; 小数部の各桁を求めて出力
-            (let loop ()
+            (let loop ((i 0))
               (set! n (* r 10))
               (set! q (quotient  n d))
               (set! r (remainder n d))
               (display (integer->digit q))
-              (inc! i)
-              (when (and (not (= r 0)) (< i circular-digits))
-                (loop))))))))
+              (when (and (not (= r 0)) (< (+ i 1) circular-digits))
+                (loop (+ i 1)))))))))
    ;; その他のとき
    (else
     (string-trim-both (x->string num)))
