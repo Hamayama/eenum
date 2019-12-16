@@ -1,7 +1,7 @@
 ;; -*- coding: utf-8 -*-
 ;;
 ;; eenum.scm
-;; 2019-12-14 v1.35
+;; 2019-12-16 v1.36
 ;;
 ;; ＜内容＞
 ;;   Gauche で、数値の指数表記を展開した文字列を取得するためのモジュールです。
@@ -23,19 +23,19 @@
 (define *default-circular-digits* 100)
 
 ;; 数値の指数表記を展開した文字列を取得する
-;;   num          数値または数値文字列
-;;                (複素数には未対応)
-;;   :w   width   全体の文字数 (キーワード引数)
-;;                (結果がこの文字数未満であれば、pad-char を挿入して右寄せにして出力する。
-;;                 結果がこの文字数以上の場合には、そのまま出力する)
-;;   :d   digits  小数点以下の桁数 (キーワード引数)
-;;                (結果の小数部がこの桁数より多い場合には、丸め処理を行う。
-;;                 結果の小数部がこの桁数より少ない場合には、0 を追加する。
-;;                 もし、負の数を指定した場合には、整数部の丸め処理を行う)
+;;   num              数値または数値文字列
+;;                    (複素数には未対応)
+;;   :w   width       全体の文字数 (キーワード引数)
+;;                    (結果がこの文字数未満であれば、pad-char を挿入して右寄せにして出力する。
+;;                     結果がこの文字数以上の場合には、そのまま出力する)
+;;   :d   digits      小数点以下の桁数 (キーワード引数)
+;;                    (結果の小数部がこの桁数より多い場合には、丸め処理を行う。
+;;                     結果の小数部がこの桁数より少ない場合には、0 を追加する。
+;;                     もし、負の数を指定した場合には、整数部の丸め処理を行う)
 ;;   :rm  round-mode  丸めモード (キーワード引数)
 ;;                    'truncate 'floor 'ceiling 'round 'round2 のいずれかを指定する
 ;;                    ('round は最近接偶数への丸め。'round2 は四捨五入)
-;;   :pd  pad-char    右寄せ時に挿入するパッド文字 (キーワード引数)
+;;   :pc  pad-char    右寄せ時に挿入するパッド文字 (キーワード引数)
 ;;   :ps  plus-sign   正符号(+)を出力するかどうか (キーワード引数)
 ;;   :sal sign-align-left  符号を左寄せで出力するかどうか (キーワード引数)
 ;;   :cd  circular-digits  循環小数の最大桁数 (キーワード引数)
@@ -43,9 +43,10 @@
 ;;   :ed  exponential-digits    指数表記の整数部の桁数 (キーワード引数)
 (define (eenum num
                :key ((:w width) #f) ((:d digits) #f)
-               ((:rm round-mode) 'truncate)
-               ((:pc pad-char)   #\space)
-               ((:ps plus-sign) #f) ((:sal sign-align-left) #f)
+               ((:rm round-mode)           'truncate)
+               ((:pc pad-char)             #\space)
+               ((:ps plus-sign)            #f)
+               ((:sal sign-align-left)     #f)
                ((:cd circular-digits)      *default-circular-digits*)
                ((:en exponential-notation) #f)
                ((:ed exponential-digits)   1))
@@ -68,7 +69,8 @@
         (%split-num-str num-st)
       ;; 分解できたとき
       (when split-ok
-        (let1 exp-num (x->integer exp-st)
+        (let ((exp-num     (x->integer exp-st))
+              (change-flag #f))
           ;; 指数表記指定のチェック
           (if exponential-notation
             ;; 数値文字列の正規化処理
@@ -80,19 +82,20 @@
           ;; 小数点以下の桁数指定ありのとき
           (when digits
             ;; 数値文字列の丸め処理
-            (set!-values (int-st frac-st)
+            (set!-values (change-flag int-st frac-st)
                          (%round-num-str sign-st int-st frac-st digits round-mode)))
           ;; 整数部の先頭のゼロを削除
           (set! int-st (%remove-leading-zero int-st))
 
-          ;; 指数表記指定で小数点以下の桁数指定ありのとき
+          ;; 指数表記指定で、小数点以下の桁数指定ありで、変化していたとき
           ;; (丸めによる最上位桁の繰り上がり対策でもう1回処理する)
-          (when (and exponential-notation digits)
+          (when (and exponential-notation digits change-flag)
             ;; 数値文字列の正規化処理(2回目)
             (set!-values (int-st frac-st exp-num)
                          (%normalize-num-str int-st frac-st exp-num exponential-digits))
-            ;; 数値文字列の丸め処理(2回目)(ここはゼロへの丸めとする)
-            (set!-values (int-st frac-st)
+            ;; 数値文字列の丸め処理(2回目)
+            ;; (ここはゼロへの丸めとする(最上位桁の繰り上がり後は、もう繰り上がらないため))
+            (set!-values (change-flag int-st frac-st)
                          (%round-num-str sign-st int-st frac-st digits 'truncate))
             ;; 整数部の先頭のゼロを削除(2回目)
             (set! int-st (%remove-leading-zero int-st)))
@@ -107,9 +110,9 @@
             (set! num-st (string-append sign-st int-st "." frac-st)))
           ;; 指数部の文字列を結合
           (set! exp-st (x->string exp-num))
-          (if (or (eq? exponential-notation 'always)
-                  (and (not (= exp-num 0))
-                       (string-skip (string-append int-st frac-st) #\0)))
+          (when (or (eq? exponential-notation 'always)
+                    (and (not (= exp-num 0))
+                         (string-skip (string-append int-st frac-st) #\0)))
             (set! num-st (string-append num-st "e" exp-st)))
           ))
       ;; 全体の文字数指定ありのとき
@@ -328,6 +331,7 @@
 
 ;; 数値文字列の丸め処理(内部処理用)
 (define (%round-num-str sign-st int-st frac-st digits round-mode)
+  (define change-flag #f)
   ;; 丸め処理
   (case round-mode
     ;; ゼロへの丸め(truncate)のとき(ここでの処理は不要)
@@ -335,11 +339,12 @@
     ;; その他の丸めのとき
     ((floor ceiling round round2)
      ;; 数値文字列の丸め処理サブ
-     (receive (changed int-st1 frac-st1)
+     (receive (change-flag1 int-st1 frac-st1)
          (%round-num-str-sub sign-st int-st frac-st digits round-mode)
-       (when changed
-         (set! int-st  int-st1)
-         (set! frac-st frac-st1))))
+       (when change-flag1
+         (set! change-flag change-flag1)
+         (set! int-st      int-st1)
+         (set! frac-st     frac-st1))))
     )
   ;; 桁の切り捨て/追加処理
   (cond
@@ -361,8 +366,8 @@
    (else
     (set! frac-st ""))
    )
-  ;; 戻り値を多値で返す
-  (values int-st frac-st))
+  ;; 戻り値を多値で返す(先頭は変化フラグ)
+  (values change-flag int-st frac-st))
 
 
 ;; 数値文字列の丸め処理サブ(内部処理用)
@@ -419,7 +424,7 @@
       )
     ;; 加算値の反映
     ;;   ・整数に変換して加算値を加算し、再度文字列に戻す
-    (if (not (= add-value 0))
+    (unless (= add-value 0)
       (let* ((temp-num      (+ (x->integer (substring temp-num-st1 0 (+ int-len digits)))
                                add-value))
              (temp-num-st2  (x->string temp-num))
